@@ -1,5 +1,9 @@
 # miniz-opt
 
+[![CI](https://github.com/aplghl/miniz-opt/actions/workflows/ci.yml/badge.svg)](https://github.com/aplghl/miniz-opt/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/aplghl/miniz-opt)](https://github.com/aplghl/miniz-opt/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
+
 A performance fork of [miniz](https://github.com/richgel999/miniz) (v3.1.2,
 MIT) that is a **byte-identical drop-in replacement** for the deflate/inflate
 codec and its checksums.
