@@ -54,12 +54,62 @@ Every change is *mechanics only*: the encoder's byte stream and the decoder's
 bytes are bit-identical to the oracle (`docs/CONFIG.md`). Held-out PGO was
 measured and **rejected** (it regressed inflate); see `docs/REJECTED.md`.
 
-## Usage
+## Releases & artifacts
+
+The artifact is a **static library**, not a shared library and not a
+header-only bundle. Every [release](https://github.com/aplghl/miniz-opt/releases)
+ships **five platform tarballs**, one per target, each built by the release
+workflow with an explicit CPU model:
+
+| asset | target |
+|---|---|
+| `miniz-opt-x86_64-linux-gnu.tar.gz` | Linux, glibc |
+| `miniz-opt-x86_64-linux-musl.tar.gz` | Linux, musl |
+| `miniz-opt-aarch64-linux-musl.tar.gz` | Linux ARM64 |
+| `miniz-opt-x86_64-windows-gnu.tar.gz` | Windows (MinGW-w64) |
+| `miniz-opt-aarch64-macos.tar.gz` | macOS ARM64 |
+
+Each tarball has this layout:
+
+```
+include/             the unchanged public miniz headers
+  miniz.h  miniz_common.h  miniz_tdef.h  miniz_tinfl.h  miniz_zip.h  miniz_export.h
+lib/
+  libminiz-opt.a     static archive (Windows: lib/miniz-opt.lib)
+```
+
+The archive contains the object files for `miniz.c`, `miniz_tdef.c`,
+`miniz_tinfl.c`, `miniz_zip.c` compiled together; public symbols are exactly
+upstream (115), so it links in place of a normal miniz build with no source
+change. It is a regular `ar` archive (`current ar archive`), not an LTO/bitcode
+or shared object. Per-file SHA-256 of the pinned upstream oracle is in
+`scripts/oracle_hashes.txt`.
+
+### Consuming a release
 
 ```sh
-scripts/build_opt.sh exact          # byte-identical static library
-# include the headers, link build/lib_exact/libminiz.a
+tar -xzf miniz-opt-x86_64-linux-gnu.tar.gz -C /opt/miniz-opt
+cc -O2 -I /opt/miniz-opt/include myapp.c /opt/miniz-opt/lib/libminiz-opt.a -o myapp
 ```
+
+```c
+#include "miniz.h"        /* declarations only; the library provides the code */
+/* mz_compress2(), mz_uncompress(), tdefl_*, tinfl_*, mz_zip_* ... */
+```
+
+### Building locally
+
+Local builds use the source tree (no zig) and produce a differently named
+archive:
+
+```sh
+scripts/build_opt.sh exact            # -> build/lib_exact/libminiz.a  (+ headers)
+zig build -Doptimize=ReleaseFast      # -> zig-out/lib/libminiz-opt.a
+```
+
+Both are the same code; `libminiz.a` is the `build_opt.sh` name and
+`libminiz-opt.a` is the zig/release name. Header-only consumers get the
+baseline build — only the linked archive carries the SIMD gain.
 
 ## Verifying
 
