@@ -24,11 +24,7 @@ jobs:
           version: 0.16.0
       - name: Build
         run: |
-          zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
-          mkdir -p dist/${{ matrix.target }}/include
-          cp zig-out/lib/libminiz-opt.a dist/${{ matrix.target }}/
-          cp src/miniz.h src/miniz_common.h src/miniz_tdef.h src/miniz_tinfl.h \
-             src/miniz_zip.h src/miniz_export.h dist/${{ matrix.target }}/include/
+          zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }} -p dist/${{ matrix.target }}
           tar -C dist/${{ matrix.target }} -czf miniz-opt-${{ matrix.target }}.tar.gz .
       - uses: actions/upload-artifact@v4
         with:
@@ -73,7 +69,7 @@ jobs:
         run: |
           gh release download "${{ github.ref_name }}" -p 'miniz-opt-x86_64-linux-gnu.tar.gz' -D /tmp/rel
           tar -C /tmp/rel -xzf /tmp/rel/miniz-opt-x86_64-linux-gnu.tar.gz
-          cc -O2 -I /tmp/rel/include harness/consumer/consumer.c /tmp/rel/libminiz-opt.a -o /tmp/consumer
+          cc -O2 -I /tmp/rel/include harness/consumer/consumer.c /tmp/rel/lib/libminiz-opt.a -o /tmp/consumer
           /tmp/consumer | tee /tmp/consumer.out
           # signature: 2 MiB text must round-trip to 279362 compressed bytes
           grep -q ',compress,6,279362,' /tmp/consumer.out
