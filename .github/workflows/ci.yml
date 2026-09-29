@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang gcc
+      - name: Oracle integrity
+        run: bash harness/oracle_integrity.sh
+      - name: Byte-exact differential (clang)
+        run: CC=clang bash harness/diff.sh
+      - name: Byte-exact differential (gcc)
+        run: CC=gcc bash harness/diff.sh
+      - name: Dispatch/ISA matrix
+        run: CC=clang bash harness/diff_dispatch.sh
+      - name: ABI symbol set
+        run: CC=clang bash harness/abi.sh
+
+  sanitize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang
+      - name: ASan+UBSan
+        run: CC=clang bash harness/sanitize.sh
+      - name: Non-vacuous proof
+        run: CC=clang bash harness/nonvacuous.sh
+
+  portable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang gcc
+      - name: Compiler / ISA / C++ matrix
+        run: bash harness/portable.sh
+
+  asm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang binutils
+      - name: Baseline assembly audit
+        run: CC=clang bash harness/asm_audit.sh

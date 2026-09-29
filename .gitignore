@@ -1,0 +1,10 @@
+build/
+corpus/
+*.o
+*.a
+*.profraw
+*.profdata
+gmon.out
+.zig-cache/
+zig-out/
+dist/

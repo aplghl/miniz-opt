@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-linux-gnu
+          - x86_64-linux-musl
+          - aarch64-linux-musl
+          - x86_64-windows-gnu
+          - aarch64-macos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Build
+        run: |
+          zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
+          mkdir -p dist/${{ matrix.target }}/include
+          cp zig-out/lib/libminiz-opt.a dist/${{ matrix.target }}/
+          cp src/miniz.h src/miniz_common.h src/miniz_tdef.h src/miniz_tinfl.h \
+             src/miniz_zip.h src/miniz_export.h dist/${{ matrix.target }}/include/
+          tar -C dist/${{ matrix.target }} -czf miniz-opt-${{ matrix.target }}.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: miniz-opt-${{ matrix.target }}
+          path: miniz-opt-${{ matrix.target }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then echo "v=${GITHUB_REF_NAME}" >>"$GITHUB_OUTPUT"; else echo "v=v0.1.0" >>"$GITHUB_OUTPUT"; fi
+      - name: Release notes
+        id: notes
+        run: |
+          f="docs/releases/${{ steps.ver.outputs.v }}.md"
+          [ -f "$f" ] || f="CHANGELOG.md"
+          echo "file=$f" >>"$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: miniz-opt ${{ steps.ver.outputs.v }}
+          body_path: ${{ steps.notes.outputs.file }}
+          files: "*.tar.gz"
+
+  link-test:
+    needs: release
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the release-built asset and link a real consumer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" -p 'miniz-opt-x86_64-linux-gnu.tar.gz' -D /tmp/rel
+          tar -C /tmp/rel -xzf /tmp/rel/miniz-opt-x86_64-linux-gnu.tar.gz
+          cc -O2 -I /tmp/rel/include harness/consumer/consumer.c /tmp/rel/libminiz-opt.a -o /tmp/consumer
+          /tmp/consumer | tee /tmp/consumer.out
+          # signature: 2 MiB text must round-trip to 279362 compressed bytes
+          grep -q ',compress,6,279362,' /tmp/consumer.out
+          echo "shipping-path link test passed"

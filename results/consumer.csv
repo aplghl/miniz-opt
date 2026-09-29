@@ -1,0 +1,3 @@
+consumer,op,level,speedup,oracle_ns,cand_ns
+consumer,compress,6,1.3220,63153919.0,47770969.0
+consumer,decompress,6,1.0351,2315324.0,2236833.0
